@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Image to PDF (Final)</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 1rem;
+      background: linear-gradient(135deg, #1e1e2f, #2c3e50);
+      font-family: 'Segoe UI', sans-serif;
+      color: #fff;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .glass-container {
+      background: rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(12px);
+      border-radius: 16px;
+      padding: 1rem;
+      width: 100%;
+      max-width: 600px;
+      box-shadow: 0 0 30px rgba(0,0,0,0.3);
+    }
+
+    h1 {
+      text-align: center;
+      font-weight: 600;
+      margin-bottom: 1rem;
+      color: #e0e0e0;
+      font-size: 1.5rem;
+    }
+
+    .input-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      justify-content: center;
+      margin-bottom: 1rem;
+    }
+
+    .input-row > * {
+      flex: 1 1 30%;
+      min-width: 120px;
+    }
+
+    input[type="file"], input[type="text"], select {
+      padding: 0.5rem;
+      border-radius: 8px;
+      background: rgba(255,255,255,0.1);
+      color: #fff;
+      border: none;
+      width: 100%;
+      text-align: center;
+    }
+
+    select, select option {
+      color: #fff;
+      background-color: rgba(0,0,0,0.6);
+    }
+
+    .preview {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      justify-content: center;
+      max-height: calc(5 * 140px);
+      overflow-y: auto;
+      margin-bottom: 1rem;
+    }
+
+    .preview-item {
+      text-align: center;
+    }
+
+    .preview img {
+      max-height: 120px;
+      height: auto;
+      width: auto;
+      border-radius: 12px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.4);
+      transition: transform 0.3s ease;
+      cursor: grab;
+    }
+
+    .preview img:hover {
+      transform: scale(1.05);
+    }
+
+    .drag-ghost {
+      opacity: 0.4;
+    }
+
+    .label {
+      font-size: 0.8rem;
+      color: #ccc;
+      margin-top: 0.3rem;
+      word-break: break-word;
+    }
+
+    button {
+      display: block;
+      margin: auto;
+      background: #00aaff;
+      color: white;
+      border: none;
+      padding: 0.75rem 1.5rem;
+      border-radius: 8px;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: background 0.3s ease;
+    }
+
+    button:hover {
+      background: #0088cc;
+    }
+  </style>
+</head>
+<body>
+  <div class="glass-container">
+    <h1>📄 Image to PDF</h1>
+    <div class="input-row">
+      <input type="file" id="imageInput" multiple accept="image/*" />
+      <input type="text" id="filenameInput" placeholder="Enter PDF name" />
+      <select id="qualitySelect">
+        <option value="low">🟢 Low (2–3 MB)</option>
+        <option value="medium">🟡 Medium (6–8 MB)</option>
+        <option value="high">🔵 High (10–12 MB)</option>
+        <option value="ultra" selected>🔴 Ultra (14–20 MB)</option>
+      </select>
+    </div>
+    <div class="preview" id="preview"></div>
+    <button id="generateBtn">Generate PDF</button>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+  <script>
+    const imageInput = document.getElementById('imageInput');
+    const preview = document.getElementById('preview');
+    const filenameInput = document.getElementById('filenameInput');
+    const qualitySelect = document.getElementById('qualitySelect');
+    const generateBtn = document.getElementById('generateBtn');
+    let selectedImages = [];
+
+    imageInput.addEventListener('change', (e) => {
+      preview.innerHTML = '';
+      selectedImages = [];
+
+      Array.from(e.target.files).forEach((file, index) => {
+        const reader = new FileReader();
+        reader.onload = function(event) {
+          const img = document.createElement('img');
+          img.src = event.target.result;
+          img.dataset.id = `img-${index}`;
+
+          const wrapper = document.createElement('div');
+          wrapper.className = 'preview-item';
+
+          const label = document.createElement('div');
+          label.className = 'label';
+          label.innerText = file.name;
+
+          wrapper.appendChild(img);
+          wrapper.appendChild(label);
+          preview.appendChild(wrapper);
+
+          selectedImages.push({ file, id: `img-${index}`, dataUrl: event.target.result });
+        };
+        reader.readAsDataURL(file);
+      });
+
+      Sortable.create(preview, {
+        animation: 150,
+        ghostClass: 'drag-ghost',
+        touchStartThreshold: 5
+      });
+    });
+
+    generateBtn.addEventListener('click', async () => {
+      const { jsPDF } = window.jspdf;
+      let pdf;
+
+      const qualityMap = {
+        low:    { maxWidth: 1120, jpegQuality: 0.8 },
+        medium: { maxWidth: 1440, jpegQuality: 0.88 },
+        high:   { maxWidth: 1600, jpegQuality: 0.9 },
+        ultra:  { maxWidth: 1920, jpegQuality: 1.0 }
+      };
+
+      const selectedQuality = qualitySelect.value;
+      const { maxWidth, jpegQuality } = qualityMap[selectedQuality];
+
+      const orderedIds = Array.from(preview.querySelectorAll('img')).map(img => img.dataset.id);
+      const orderedImages = orderedIds.map(id => selectedImages.find(img => img.id === id));
+
+      for (let i = 0; i < orderedImages.length; i++) {
+        const img = new Image();
+        img.src = orderedImages[i].dataUrl;
+        await new Promise(resolve => img.onload = resolve);
+
+        const scale = Math.min(maxWidth / img.naturalWidth, 1);
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth * scale;
+        canvas.height = img.naturalHeight * scale;
+
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+        const imgData = canvas.toDataURL('image/jpeg', jpegQuality);
+
+        const pageWidth = canvas.width;
+        const pageHeight = canvas.height;
+        const orientation = pageWidth > pageHeight ? 'landscape' : 'portrait';
+
+        if (i === 0) {
+          pdf = new jsPDF({
+            orientation: orientation,
+            unit: 'pt',
+            format: [pageWidth, pageHeight]
+          });
+        } else {
+          pdf.addPage([pageWidth, pageHeight], orientation);
+        }
+
+        pdf.setPage(i + 1);
+        pdf.addImage(imgData, 'JPEG', 0, 0, pageWidth, pageHeight);
+      }
+
+      const filename = filenameInput.value.trim() || 'images';
+      pdf.save(`${filename}.pdf`);
+    });
+  </script>
+</body>
+</html>
