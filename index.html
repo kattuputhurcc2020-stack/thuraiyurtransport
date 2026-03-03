@@ -1,239 +1,488 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Image to PDF</title>
-  <style>
-    body {
-      margin: 0;
-      padding: 1rem;
-      background: linear-gradient(135deg, #1e1e2f, #2c3e50);
-      font-family: 'Segoe UI', sans-serif;
-      color: #fff;
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>KPT TRANSPORT TIMING</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        :root { 
+            --primary: #4f46e5; 
+            --report-blue: #1e40af;
+            --green-grad: linear-gradient(135deg, #059669 0%, #10b981 100%);
+            --grad: linear-gradient(135deg, #1e3a8a 0%, #4338ca 100%);
+            --bg: #f8fafc;
+            --card: #ffffff;
+            --nav-bg: rgba(255, 255, 255, 0.9);
+            --danger: #ef4444;
+        }
+        
+        body { font-family: 'Segoe UI', Roboto, sans-serif; margin: 0; background: var(--bg); padding-bottom: 110px; color: #1e293b; }
+        header { background: var(--grad); color: white; padding: 25px 15px; text-align: center; font-weight: 800; font-size: 1.1rem; letter-spacing: 0.5px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .container { padding: 15px; max-width: 600px; margin: auto; }
 
-    .glass-container {
-      background: rgba(255, 255, 255, 0.08);
-      backdrop-filter: blur(12px);
-      border-radius: 16px;
-      padding: 1rem;
-      width: 100%;
-      max-width: 600px;
-      box-shadow: 0 0 30px rgba(0,0,0,0.3);
-    }
+        /* Floating Navigation */
+        .tabs { 
+            position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+            width: 92%; max-width: 500px;
+            background: var(--nav-bg); backdrop-filter: blur(15px);
+            display: flex; justify-content: space-around; 
+            padding: 10px 0; border-radius: 20px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.15); border: 1px solid rgba(255,255,255,0.5);
+            z-index: 2000;
+        }
+        .tabs button { 
+            background: none; border: none; color: #94a3b8; font-size: 0.65rem; 
+            font-weight: 700; display: flex; flex-direction: column; align-items: center; gap: 4px;
+            transition: 0.3s; cursor: pointer; flex: 1;
+        }
+        .tabs button i { font-size: 1.4rem; }
+        .tabs .active { color: var(--primary); }
+        .tabs .active i { color: var(--primary); }
 
-    h1 {
-      text-align: center;
-      font-weight: 600;
-      margin-bottom: 1rem;
-      color: #e0e0e0;
-      font-size: 1.5rem;
-    }
+        /* Modern Card Styling */
+        .card { background: var(--card); padding: 20px; border-radius: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.03); margin-bottom: 20px; border: 1px solid #e2e8f0; }
+        .section-title { font-size: 0.9rem; font-weight: 800; margin-bottom: 15px; color: var(--primary); text-transform: uppercase; display: block; }
+        
+        .row { display: flex; gap: 12px; margin-bottom: 15px; }
+        .group { flex: 1; display: flex; flex-direction: column; gap: 6px; }
+        label { font-size: 0.7rem; font-weight: 800; color: #64748b; text-transform: uppercase; }
+        input, select { padding: 12px; border: 1px solid #e2e8f0; border-radius: 12px; font-size: 1rem; width: 100%; box-sizing: border-box; background: #fcfdfe; transition: 0.2s; }
+        
+        .time-picker-ui { display: flex; background: #f1f5f9; border-radius: 12px; padding: 2px; align-items: center; }
+        .time-picker-ui select { border: none; background: transparent; font-weight: 700; padding: 10px 5px; text-align: center; }
 
-    .input-row {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 1rem;
-      justify-content: center;
-      margin-bottom: 1rem;
-    }
+        .btn { padding: 16px; border: none; border-radius: 15px; font-weight: 800; cursor: pointer; width: 100%; font-size: 0.95rem; transition: 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .btn-primary { background: var(--grad); color: white; box-shadow: 0 4px 15px rgba(79, 70, 229, 0.3); }
+        .btn-success { background: #10b981; color: white; margin-top: 15px; }
 
-    .input-row > * {
-      flex: 1 1 30%;
-      min-width: 120px;
-    }
+        /* Modern List (Queue & Update) */
+        .modern-list { margin-top: 20px; display: flex; flex-direction: column; gap: 10px; }
+        .list-item { 
+            background: #fff; border: 1px solid #e2e8f0; padding: 15px; border-radius: 15px;
+            display: grid; grid-template-columns: 1fr 1fr auto; align-items: center; gap: 10px;
+        }
+        .list-info b { display: block; font-size: 1rem; color: #1e293b; }
+        .list-info span { font-size: 0.75rem; color: #64748b; font-weight: 600; }
+        .list-times { text-align: center; font-family: monospace; font-weight: 700; background: #f1f5f9; padding: 5px 10px; border-radius: 8px; font-size: 0.85rem; }
+        .delete-btn { color: #94a3b8; padding: 8px; cursor: pointer; transition: 0.2s; }
 
-    input[type="file"], input[type="text"], select {
-      padding: 0.5rem;
-      border-radius: 8px;
-      background: rgba(255,255,255,0.1);
-      color: #fff;
-      border: none;
-      width: 100%;
-      text-align: center;
-    }
-
-    select, select option {
-      color: #fff;
-      background-color: rgba(0,0,0,0.6);
-    }
-
-    .preview {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 1rem;
-      justify-content: center;
-      max-height: calc(5 * 140px);
-      overflow-y: auto;
-      margin-bottom: 1rem;
-    }
-
-    .preview-item {
-      text-align: center;
-    }
-
-    .preview img {
-      max-height: 120px;
-      height: auto;
-      width: auto;
-      border-radius: 12px;
-      box-shadow: 0 0 10px rgba(0,0,0,0.4);
-      transition: transform 0.3s ease;
-      cursor: grab;
-    }
-
-    .preview img:hover {
-      transform: scale(1.05);
-    }
-
-    .drag-ghost {
-      opacity: 0.4;
-    }
-
-    .label {
-      font-size: 0.8rem;
-      color: #ccc;
-      margin-top: 0.3rem;
-      word-break: break-word;
-    }
-
-    button {
-      display: block;
-      margin: auto;
-      background: #00aaff;
-      color: white;
-      border: none;
-      padding: 0.75rem 1.5rem;
-      border-radius: 8px;
-      font-size: 1rem;
-      cursor: pointer;
-      transition: background 0.3s ease;
-    }
-
-    button:hover {
-      background: #0088cc;
-    }
-  </style>
-</head>
-<body>
-  <div class="glass-container">
-    <h1>📄 Sukumar Image to PDF</h1>
-    <div class="input-row">
-      <input type="file" id="imageInput" multiple accept="image/*" />
-      <input type="text" id="filenameInput" placeholder="Enter PDF name" />
-      <select id="qualitySelect">
-        <option value="low">🟢 Low (2–3 MB)</option>
-        <option value="medium">🟡 Medium (6–8 MB)</option>
-        <option value="high">🔵 High (10–12 MB)</option>
-        <option value="ultra" selected>🔴 Ultra (14–20 MB)</option>
-      </select>
-    </div>
-    <div class="preview" id="preview"></div>
-    <button id="generateBtn">Generate PDF</button>
-  </div>
-
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
-  <script>
-    const imageInput = document.getElementById('imageInput');
-    const preview = document.getElementById('preview');
-    const filenameInput = document.getElementById('filenameInput');
-    const qualitySelect = document.getElementById('qualitySelect');
-    const generateBtn = document.getElementById('generateBtn');
-    let selectedImages = [];
-
-    imageInput.addEventListener('change', (e) => {
-      preview.innerHTML = '';
-      selectedImages = [];
-
-      Array.from(e.target.files).forEach((file, index) => {
-        const reader = new FileReader();
-        reader.onload = function(event) {
-          const img = document.createElement('img');
-          img.src = event.target.result;
-          img.dataset.id = `img-${index}`;
-
-          const wrapper = document.createElement('div');
-          wrapper.className = 'preview-item';
-
-          const label = document.createElement('div');
-          label.className = 'label';
-          label.innerText = file.name;
-
-          wrapper.appendChild(img);
-          wrapper.appendChild(label);
-          preview.appendChild(wrapper);
-
-          selectedImages.push({ file, id: `img-${index}`, dataUrl: event.target.result });
-        };
-        reader.readAsDataURL(file);
-      });
-
-      Sortable.create(preview, {
-        animation: 150,
-        ghostClass: 'drag-ghost',
-        touchStartThreshold: 5
-      });
-    });
-
-    generateBtn.addEventListener('click', async () => {
-      const { jsPDF } = window.jspdf;
-      let pdf;
-
-      const qualityMap = {
-        low:    { maxWidth: 1120, jpegQuality: 0.8 },
-        medium: { maxWidth: 1440, jpegQuality: 0.88 },
-        high:   { maxWidth: 1600, jpegQuality: 0.9 },
-        ultra:  { maxWidth: 1920, jpegQuality: 1.0 }
-      };
-
-      const selectedQuality = qualitySelect.value;
-      const { maxWidth, jpegQuality } = qualityMap[selectedQuality];
-
-      const orderedIds = Array.from(preview.querySelectorAll('img')).map(img => img.dataset.id);
-      const orderedImages = orderedIds.map(id => selectedImages.find(img => img.id === id));
-
-      for (let i = 0; i < orderedImages.length; i++) {
-        const img = new Image();
-        img.src = orderedImages[i].dataUrl;
-        await new Promise(resolve => img.onload = resolve);
-
-        const scale = Math.min(maxWidth / img.naturalWidth, 1);
-        const canvas = document.createElement('canvas');
-        canvas.width = img.naturalWidth * scale;
-        canvas.height = img.naturalHeight * scale;
-
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-
-        const imgData = canvas.toDataURL('image/jpeg', jpegQuality);
-
-        const pageWidth = canvas.width;
-        const pageHeight = canvas.height;
-        const orientation = pageWidth > pageHeight ? 'landscape' : 'portrait';
-
-        if (i === 0) {
-          pdf = new jsPDF({
-            orientation: orientation,
-            unit: 'pt',
-            format: [pageWidth, pageHeight]
-          });
-        } else {
-          pdf.addPage([pageWidth, pageHeight], orientation);
+        /* UPDATED REPORT STYLING */
+        #reportCaptureArea { background: #ffffff; padding: 30px; display: inline-block; }
+        
+        .report-header-blue {
+            color: var(--report-blue);
+            font-size: 24px;
+            font-weight: 900;
+            text-align: left;
+            margin-bottom: 15px;
         }
 
-        pdf.setPage(i + 1);
-        pdf.addImage(imgData, 'JPEG', 0, 0, pageWidth, pageHeight);
-      }
+        .report-table-modern-wrapper {
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+            border: 1px solid #000;
+        }
 
-      const filename = filenameInput.value.trim() || 'images';
-      pdf.save(`${filename}.pdf`);
-    });
-  </script>
+        .report-table { width: 100%; border-collapse: collapse; border: none; }
+
+        /* Same Line Continuous Gradient for Caption Row */
+        .report-table thead tr {
+            background: var(--green-grad) !important;
+        }
+
+        .report-table th { 
+            color: #ffffff !important; 
+            padding: 16px 12px; 
+            font-size: 20px; 
+            font-weight: 800;
+            text-align: center;
+            text-transform: uppercase;
+            border: none;
+        }
+
+        .report-table td { 
+            padding: 14px 12px; 
+            text-align: center; 
+            font-size: 18px; 
+            font-weight: 700; 
+            color: #334155;
+            border: 1px solid #e2e8f0;
+            white-space: nowrap;
+        }
+
+        /* Zebra Striping */
+        .report-table tbody tr:nth-child(even) { background-color: #f8fafc; }
+
+        /* Specific Status Colors */
+        .status-late { color: #ff0000 !important; } /* Red for Late */
+        .status-early { color: #008000 !important; } /* Green for Early */
+        .status-ontime { color: #000000 !important; } /* Black for On Time */
+
+        .route-col { text-align: left !important; padding-left: 20px !important; color: #1e293b !important; }
+        .fit-col { width: 1%; }
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+<header>THURAIYUR MCC VECHICLE IN TIME REPORTS</header>
+
+<div class="container">
+    <div id="entry" class="card">
+        <span class="section-title">New Entry</span>
+        <div class="row">
+            <div class="group"><label>Date</label><input type="date" id="eDate"></div>
+            <div class="group"><label>Shift</label><select id="eShift" onchange="handleShiftChange()"><option value="M">Morning</option><option value="E">Evening</option></select></div>
+        </div>
+        <div class="row">
+            <div class="group"><label>Route Name</label><select id="eVehicle" onchange="syncSch()"></select></div>
+            <div class="group"><label>Sch. Time</label><input type="text" id="eSchShow" disabled style="background:#f8fafc; font-weight:800; color: var(--primary);"></div>
+        </div>
+        <div class="row">
+            <div class="group">
+                <label>Vehicle In</label>
+                <div class="time-picker-ui">
+                    <select id="inH"></select>:<select id="inM"></select><select id="inAP"><option>AM</option><option>PM</option></select>
+                </div>
+            </div>
+            <div class="group">
+                <label>Unload Time</label>
+                <div class="time-picker-ui">
+                    <select id="unH"></select>:<select id="unM"></select><select id="unAP"><option>AM</option><option>PM</option></select>
+                </div>
+            </div>
+        </div>
+        <button class="btn btn-primary" onclick="processEntry()"><i class="fa-solid fa-plus-circle"></i> ADD TO QUEUE</button>
+        <div id="queueContainer" class="modern-list"></div>
+        <button id="saveBtn" class="btn btn-success hidden" onclick="finalizeAll()"><i class="fa-solid fa-cloud-arrow-up"></i> SAVE TO DATABASE</button>
+    </div>
+
+    <div id="report" class="card hidden">
+        <span class="section-title">Generate Report</span>
+        <div class="row">
+            <div class="group"><label>Date</label><input type="date" id="rDate"></div>
+            <div class="group"><label>Shift</label><select id="rShift"><option value="M">Morning</option><option value="E">Evening</option></select></div>
+        </div>
+        <button class="btn btn-primary" onclick="loadReportData()"><i class="fa-solid fa-bolt"></i> VIEW REPORT</button>
+        
+        <div style="overflow-x:auto; margin-top:20px;">
+            <div id="reportCaptureArea">
+                <div id="dynamicTitle" class="report-header-blue">Kattuputhur MCC Vehicle in time Report</div>
+                <div class="report-table-modern-wrapper">
+                    <table id="reportFinalTable" class="report-table"></table>
+                </div>
+            </div>
+        </div>
+        <div class="row" style="margin-top:20px;">
+            <button class="btn" style="background:#334155; color:white;" onclick="downloadReportImage()"><i class="fa-solid fa-image"></i> IMAGE</button>
+            <button class="btn" style="background:#059669; color:white;" onclick="exportToExcel()"><i class="fa-solid fa-file-excel"></i> EXCEL</button>
+        </div>
+    </div>
+
+    <div id="updateTab" class="card hidden">
+        <span class="section-title">Record Management</span>
+        <div class="row">
+            <div class="group"><label>Select Date</label><input type="date" id="uDate"></div>
+            <div class="group"><label>Shift</label><select id="uShift"><option value="M">Morning</option><option value="E">Evening</option></select></div>
+        </div>
+        <button class="btn btn-primary" onclick="loadUpdateData()">FETCH RECORDS</button>
+        <div id="updateList" class="modern-list"></div>
+    </div>
+
+    <div id="admin" class="card hidden">
+        <div id="adminLock">
+            <h3 style="text-align:center">Admin Access</h3>
+            <input type="password" id="adminPass" placeholder="•••••" style="text-align:center; font-size:1.5rem; letter-spacing:8px;">
+            <button class="btn btn-primary" style="margin-top:15px;" onclick="unlockAdmin()">UNLOCK</button>
+        </div>
+        <div id="adminContent" class="hidden">
+            <label>Manage Route</label>
+            <input id="vNewName" placeholder="Route Name" style="margin-bottom:10px">
+            <div class="row">
+                <div class="group"><label>M-Sch</label><input type="time" id="vNewM"></div>
+                <div class="group"><label>E-Sch</label><input type="time" id="vNewE"></div>
+            </div>
+            <button class="btn btn-primary" id="vActionBtn" onclick="handleRouteSave()">SAVE ROUTE</button>
+            <table id="routeListTable" class="report-table" style="margin-top:20px; width:100%; font-size:14px; border: 1px solid #000;"></table>
+        </div>
+    </div>
+
+    <div id="sync" class="card hidden">
+        <span class="section-title">Data Sync</span>
+        <button class="btn" style="background:#64748b; color:white;" onclick="exportBackup()"><i class="fa-solid fa-download"></i> EXPORT BACKUP</button>
+        <div style="margin-top:30px; border-top:1px solid #e2e8f0; padding-top:20px;">
+            <label>Import JSON</label><input type="file" id="importFile" style="margin-top:10px;">
+            <button class="btn btn-success" onclick="importBackup()">SYNC DATA</button>
+        </div>
+    </div>
+</div>
+
+<nav class="tabs">
+    <button onclick="switchTab(event,'entry')" class="active"><i class="fa-solid fa-plus-circle"></i>ENTRY</button>
+    <button onclick="switchTab(event,'report')"><i class="fa-solid fa-file-invoice"></i>REPORT</button>
+    <button onclick="switchTab(event,'updateTab')"><i class="fa-solid fa-pen-to-square"></i>UPDATE</button>
+    <button onclick="switchTab(event,'admin')"><i class="fa-solid fa-gears"></i>ADMIN</button>
+    <button onclick="switchTab(event,'sync')"><i class="fa-solid fa-cloud"></i>SYNC</button>
+</nav>
+
+<script>
+    const defaults = [
+        {name: "PAVITHRAM", m: "08:45", e: "19:45"},
+        {name: "THATHAIYANGARPETTAI", m: "08:45", e: "19:45"},
+        {name: "PAITHAMPARAI", m: "08:50", e: "19:50"},
+        {name: "KARATOOR", m: "08:50", e: "19:50"},
+        {name: "NAVALADIPATTI", m: "09:00", e: "20:00"},
+        {name: "MARUVATHUR", m: "09:05", e: "20:05"},
+        {name: "METTUPALAYAM", m: "09:08", e: "20:08"},
+        {name: "VELIYANUR", m: "09:10", e: "20:10"},
+        {name: "THENUR", m: "09:10", e: "20:10"},
+        {name: "PERAMANGALAM", m: "09:12", e: "20:12"},
+        {name: "CHETTIKULAM", m: "09:15", e: "20:15"},
+        {name: "KANNANUR", m: "09:18", e: "20:18"},
+        {name: "EACHAMPATTI", m: "09:20", e: "20:20"},
+        {name: "THIRUPATTUR", m: "09:20", e: "20:20"},
+        {name: "PILLAPALAYAM", m: "09:22", e: "20:22"},
+        {name: "MOOVANUR", m: "09:23", e: "20:23"},
+        {name: "MANGAPATTI", m: "09:25", e: "20:25"},
+        {name: "VALAVANTHI", m: "09:27", e: "20:27"},
+        {name: "KOPPAMPATTI", m: "09:30", e: "20:30"},
+        {name: "KOMBAI", m: "09:30", e: "20:30"},
+        {name: "THIRUMANUR", m: "09:35", e: "20:35"},
+        {name: "DEVANOOR", m: "09:38", e: "20:38"},
+        {name: "JAMPUNATHAPURAM", m: "09:45", e: "20:45"},
+        {name: "NAKKASALEM", m: "09:50", e: "20:50"},
+        {name: "THANGANAGAR", m: "10:00", e: "21:00"},
+        {name: "PERAMBALUR", m: "10:05", e: "21:05"},
+        {name: "KONAPPAMPATTY", m: "10:10", e: "21:10"},
+        {name: "THIRUVELLARAI", m: "10:15", e: "21:15"},
+        {name: "SIRUGAMBUR", m: "10:18", e: "21:18"},
+        {name: "MUSIRI", m: "10:20", e: "21:20"}
+    ];
+    let routes = JSON.parse(localStorage.getItem('fleet_routes')) || defaults;
+    let records = JSON.parse(localStorage.getItem('fleet_records')) || [];
+    let queue = [];
+    let editIdx = -1;
+
+    function initApp() {
+        ['inH', 'unH'].forEach(id => { const el = document.getElementById(id); for(let i=1; i<=12; i++) el.innerHTML += `<option>${i.toString().padStart(2,'0')}</option>`; });
+        ['inM', 'unM'].forEach(id => { const el = document.getElementById(id); for(let i=0; i<60; i++) el.innerHTML += `<option>${i.toString().padStart(2,'0')}</option>`; });
+        populateRoutes(); renderAdminRoutes();
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('eDate').value = today;
+        document.getElementById('rDate').value = today;
+        document.getElementById('uDate').value = today;
+        handleShiftChange();
+    }
+
+    function switchTab(e, id) {
+        document.querySelectorAll('.card').forEach(c => c.classList.add('hidden'));
+        document.getElementById(id).classList.remove('hidden');
+        document.querySelectorAll('.tabs button').forEach(b => b.classList.remove('active'));
+        if(e) e.currentTarget.classList.add('active');
+    }
+
+    function handleShiftChange() {
+        const s = document.getElementById('eShift').value;
+        const ap = (s === 'M') ? 'AM' : 'PM';
+        document.getElementById('inAP').value = ap;
+        document.getElementById('unAP').value = ap;
+        syncSch();
+    }
+
+    function populateRoutes() {
+        document.getElementById('eVehicle').innerHTML = routes.map((r, i) => `<option value="${i}">${r.name}</option>`).join('');
+        syncSch();
+    }
+
+    function syncSch() {
+        const r = routes[document.getElementById('eVehicle').value];
+        const s = document.getElementById('eShift').value;
+        const t24 = (s === 'M') ? r.m : r.e;
+        let [h, m] = t24.split(':').map(Number);
+        let ap = h >= 12 ? 'PM' : 'AM'; h = h % 12 || 12;
+        document.getElementById('eSchShow').value = `${h}:${m.toString().padStart(2,'0')} ${ap}`;
+    }
+
+    function getMinutes(t12) {
+        let [time, ap] = t12.split(' '); let [h, m] = time.split(':').map(Number);
+        if(ap === 'PM' && h !== 12) h += 12; if(ap === 'AM' && h === 12) h = 0;
+        return h * 60 + m;
+    }
+
+    function formatDuration(totalMin) {
+        if(isNaN(totalMin) || totalMin === 0) return "—";
+        const absMin = Math.abs(totalMin);
+        const hrs = Math.floor(absMin / 60);
+        const mins = absMin % 60;
+        let res = hrs > 0 ? `${hrs} hr ${mins} min` : `${mins} min`;
+        return totalMin < 0 ? `-${res}` : res;
+    }
+
+    function processEntry() {
+        const d = {
+            id: Date.now(), date: document.getElementById('eDate').value, shift: document.getElementById('eShift').value,
+            name: routes[document.getElementById('eVehicle').value].name, sch: document.getElementById('eSchShow').value,
+            in: `${document.getElementById('inH').value}:${document.getElementById('inM').value} ${document.getElementById('inAP').value}`,
+            un: `${document.getElementById('unH').value}:${document.getElementById('unM').value} ${document.getElementById('unAP').value}`
+        };
+        queue.push(d); queue.sort((a,b) => getMinutes(a.in) - getMinutes(b.in));
+        renderQueue();
+    }
+
+    function renderQueue() {
+        const container = document.getElementById('queueContainer');
+        document.getElementById('saveBtn').classList.toggle('hidden', queue.length === 0);
+        container.innerHTML = queue.map((it, i) => `
+            <div class="list-item">
+                <div class="list-info"><b>${it.name}</b><span>Schedule: ${it.sch.split(' ')[0]}</span></div>
+                <div class="list-times">IN TIME: ${it.in.split(' ')[0]}<br>UN LOAD: ${it.un.split(' ')[0]}</div>
+                <div class="delete-btn" onclick="queue.splice(${i},1);renderQueue()"><i class="fa-solid fa-trash-can"></i></div>
+            </div>
+        `).join('');
+    }
+
+    function finalizeAll() {
+        records = records.concat(queue); localStorage.setItem('fleet_records', JSON.stringify(records));
+        queue = []; renderQueue(); alert("Saved Successfully!");
+    }
+
+    function loadReportData() {
+        const d = document.getElementById('rDate').value;
+        const s = document.getElementById('rShift').value;
+        const filtered = records.filter(r => r.date === d && r.shift === s).sort((a,b) => getMinutes(a.in) - getMinutes(b.in));
+        const fDate = d.split('-').reverse().join('.');
+        
+        document.getElementById('dynamicTitle').innerText = `Kattuputhur MCC Vehicle in time Report on ${fDate} ${s} shift`;
+        
+        let h = `<thead><tr>
+                    <th class="fit-col">S.NO</th>
+                    <th class="route-col">ROUTE NAME</th>
+                    <th class="fit-col">SCHEDULE<br>TIME</th>
+                    <th class="fit-col">VEHICLE<br>IN TIME</th>
+                    <th class="fit-col">STATUS</th>
+                    <th class="fit-col">VEHICLE<br>GAP</th>
+                    <th class="fit-col">DUMPING<br>TIME</th>
+                </tr></thead><tbody>`;
+        
+        let lastInMin = 0;
+        filtered.forEach((r, i) => {
+            const schMin = getMinutes(r.sch);
+            const inMin = getMinutes(r.in);
+            const unMin = getMinutes(r.un);
+            const diff = inMin - schMin;
+            
+            let statusText = "ON TIME"; let statusCls = "status-ontime";
+            if(diff > 0) { statusText = `LATE ${formatDuration(diff)}`; statusCls = "status-late"; }
+            else if(diff < 0) { statusText = `EARLY ${formatDuration(Math.abs(diff))}`; statusCls = "status-early"; }
+
+            let gap = i === 0 ? "—" : formatDuration(inMin - lastInMin);
+            lastInMin = inMin;
+            
+            h += `<tr>
+                    <td class="fit-col">${i+1}</td>
+                    <td class="route-col">${r.name}</td>
+                    <td class="fit-col">${r.sch.split(' ')[0]}</td>
+                    <td class="fit-col">${r.in.split(' ')[0]}</td>
+                    <td class="fit-col ${statusCls}">${statusText}</td>
+                    <td class="fit-col">${gap}</td>
+                    <td class="fit-col">${formatDuration(unMin - inMin)}</td>
+                  </tr>`;
+        });
+        document.getElementById('reportFinalTable').innerHTML = h + "</tbody>";
+    }
+
+    function loadUpdateData() {
+        const d = document.getElementById('uDate').value;
+        const s = document.getElementById('uShift').value;
+        const filtered = records.filter(r => r.date === d && r.shift === s).sort((a,b) => getMinutes(a.in) - getMinutes(b.in));
+        const container = document.getElementById('updateList');
+        if(!filtered.length) { container.innerHTML = "No records found"; return; }
+        container.innerHTML = filtered.map(r => `
+            <div class="list-item">
+                <div class="list-info"><b>${r.name}</b><span>${r.date} | ${r.shift}</span></div>
+                <div class="list-times">IN: ${r.in.split(' ')[0]}<br>UN: ${r.un.split(' ')[0]}</div>
+                <div class="delete-btn" onclick="deleteRec(${r.id})"><i class="fa-solid fa-trash-can"></i></div>
+            </div>
+        `).join('');
+    }
+
+    function deleteRec(id) {
+        if(confirm("Delete record?")) {
+            records = records.filter(r => r.id !== id);
+            localStorage.setItem('fleet_records', JSON.stringify(records));
+            loadUpdateData();
+        }
+    }
+
+    function unlockAdmin() {
+        if(document.getElementById('adminPass').value === "10465") {
+            document.getElementById('adminLock').classList.add('hidden');
+            document.getElementById('adminContent').classList.remove('hidden');
+        } else alert("Invalid PIN");
+    }
+
+    function handleRouteSave() {
+        const n = document.getElementById('vNewName').value;
+        const m = document.getElementById('vNewM').value;
+        const e = document.getElementById('vNewE').value;
+        if(editIdx > -1) { routes[editIdx] = {name:n, m:m, e:e}; editIdx = -1; }
+        else { routes.push({name:n, m:m, e:e}); }
+        localStorage.setItem('fleet_routes', JSON.stringify(routes));
+        renderAdminRoutes(); populateRoutes();
+    }
+
+    function renderAdminRoutes() {
+        let h = `<tr><th>ROUTE</th><th>M</th><th>E</th><th>EDIT</th></tr>`;
+        routes.forEach((r, i) => { h += `<tr><td>${r.name}</td><td>${r.m}</td><td>${r.e}</td><td><i class="fa fa-edit" onclick="editRoute(${i})"></i></td></tr>`; });
+        document.getElementById('routeListTable').innerHTML = h;
+    }
+
+    function editRoute(i) {
+        editIdx = i;
+        document.getElementById('vNewName').value = routes[i].name;
+        document.getElementById('vNewM').value = routes[i].m;
+        document.getElementById('vNewE').value = routes[i].e;
+    }
+
+    function exportBackup() {
+        const blob = new Blob([JSON.stringify({routes, records})], {type: "application/json"});
+        const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `backup.json`; a.click();
+    }
+
+    function importBackup() {
+        const file = document.getElementById('importFile').files[0];
+        if(!file) return alert("Select file");
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const data = JSON.parse(e.target.result);
+                if(data.records) records = records.concat(data.records);
+                if(data.routes) routes = data.routes;
+                localStorage.setItem('fleet_records', JSON.stringify(records));
+                localStorage.setItem('fleet_routes', JSON.stringify(routes));
+                alert("Database Synced!"); location.reload();
+            } catch(err) { alert("Invalid File Format"); }
+        };
+        reader.readAsText(file);
+    }
+
+    function downloadReportImage() {
+        html2canvas(document.getElementById("reportCaptureArea"), { scale: 3 }).then(canvas => {
+            const link = document.createElement('a');
+            link.download = `Logistics_Report.png`; link.href = canvas.toDataURL(); link.click();
+        });
+    }
+
+    function exportToExcel() {
+        const wb = XLSX.utils.table_to_book(document.getElementById("reportFinalTable"));
+        XLSX.writeFile(wb, `Logistics_Report.xlsx`);
+    }
+
+    initApp();
+</script>
 </body>
 </html>
